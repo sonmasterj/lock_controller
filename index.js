@@ -4,7 +4,7 @@ const cors = require('cors')
 const port = 3000
 const SerialPort = require('serialport')
 const ByteLength = require('@serialport/parser-byte-length')
-let MESS_CU_TEMP=[0x02,0x00,0x00,0x50,0x03,0x65]
+let MESS_CU_TEMP=[0x02,0x00,0x00,0x50,0x03,0x55]
 async function connectArd(path) {
     return new Promise((resolve,reject)=>{
         const sp = new SerialPort(path,{baudRate:19200},function(err){
@@ -57,7 +57,7 @@ function  delay(time){
     // console.log(serialList)
     for await(let [port,sp] of  Object.entries(serialList))
     {
-        let mess_CU=[0x02,0x00,0x00,0x60,0x03,0x65]
+        let mess_CU=[0x02,0x00,0x00,0x50,0x03,0x55]
         const interval=setInterval(async()=>{
             sp.write(mess_CU,(err)=>{
                 if(err){
@@ -65,8 +65,8 @@ function  delay(time){
                 }
             })
             await delay(100)
-            let data= sp.read(18)
-            if(data!==null && data[0]===0x02 && data[3]===0x75)
+            let data= sp.read(12)
+            if(data!==null && data[0]===0x02 && data[3]===0x65)
             {
                 console.log("found cu hardware")
                 clearInterval(interval)
@@ -86,15 +86,15 @@ function  delay(time){
     if(cuPort.length>0)
     {
         cu=new SerialPort(cuPort[0],{baudRate:19200}) 
-        let config = [0x02, 0x0A ,0x00, 0x67,0x03,0x76]
-        cu.write(config,(err)=>{
-            if(err){
-                console.log('error set config for all cu')
-            }
-        })
+        // let config = [0x02, 0x0A ,0x00, 0x67,0x03,0x76]
+        // cu.write(config,(err)=>{
+        //     if(err){
+        //         console.log('error set config for all cu')
+        //     }
+        // })
         await delay(1000)
 
-        let parserCU = cu.pipe(new ByteLength({length:18}))
+        let parserCU = cu.pipe(new ByteLength({length:12}))
         parserCU.on('data',async(line)=>{
             if(!line){
                 return
@@ -115,7 +115,7 @@ function  delay(time){
                 {
                     console.log("reconnect cu port")
                     cu=new SerialPort(cuPort[0],{baudRate:19200})
-                    parserCU = cu.pipe(new ByteLength({ length: 18 }))
+                    parserCU = cu.pipe(new ByteLength({ length: 12 }))
                     parserCU.on('data', async(line) => {
                         
                         if(!line){
@@ -172,7 +172,7 @@ function  delay(time){
             {
                 MESS_CU[1]=deviceId
                 MESS_CU[2]=id>0?id-1:0
-                MESS_CU[3]=0x61
+                MESS_CU[3]=0x51
                 let mess_sum=MESS_CU.slice(0,MESS_CU.length-1)
                 MESS_CU[5]=checkSum(mess_sum)
                 // console.log("message send cu:",MESS_CU)
@@ -190,7 +190,7 @@ function  delay(time){
             }
             //send status cmd
             let resultOpen=[]
-            MESS_CU[3]=0x60
+            MESS_CU[3]=0x50
             MESS_CU[2]=0
             let mess_sum=MESS_CU.slice(0,MESS_CU.length-1)
             MESS_CU[5]=checkSum(mess_sum)
@@ -207,7 +207,7 @@ function  delay(time){
             await delay(200)
             // cu.flush()
             
-            if(data.length>0 && data[0]===0x02 && data[1]===MESS_CU[1]&& data[3]===0x75 )
+            if(data.length>0 && data[0]===0x02 && data[1]===MESS_CU[1]&& data[3]===0x65 )
             {
                 let result=(data[6]<<16)|(data[5]<<8)|(data[4])
                 // data=[]
@@ -272,7 +272,7 @@ function  delay(time){
 
             //send status cmd
             let resultStatus=[]
-            MESS_CU[3]=0x60
+            MESS_CU[3]=0x50
             MESS_CU[1]=deviceId
             MESS_CU[2]=0
             let mess_sum=MESS_CU.slice(0,MESS_CU.length-1)
@@ -288,7 +288,7 @@ function  delay(time){
             cu.write(MESS_CU)
             await delay(200)
             // cu.flush()
-            if(data.length>0 && data[0]===0x02 && data[1]===MESS_CU[1]&& data[3]===0x75 )
+            if(data.length>0 && data[0]===0x02 && data[1]===MESS_CU[1]&& data[3]===0x65 )
             {
                 let result=(data[6]<<16)|(data[5]<<8)|(data[4])
 
