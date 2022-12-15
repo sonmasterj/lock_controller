@@ -4,7 +4,7 @@ const cors = require('cors')
 const port = 3000
 const SerialPort = require('serialport')
 const ByteLength = require('@serialport/parser-byte-length')
-let MESS_CU_TEMP=[0x02,0x00,0x00,0x50,0x03,0x55]
+let MESS_CU_TEMP=[0x02,0x00,0x30,0x03,0x35]
 async function connectArd(path) {
     return new Promise((resolve,reject)=>{
         const sp = new SerialPort(path,{baudRate:19200},function(err){
@@ -57,7 +57,7 @@ function  delay(time){
     // console.log(serialList)
     for await(let [port,sp] of  Object.entries(serialList))
     {
-        let mess_CU=[0x02,0x00,0x00,0x50,0x03,0x55]
+        let mess_CU=[0x02,0xf0,0x32,0x03,0x27]
         const interval=setInterval(async()=>{
             sp.write(mess_CU,(err)=>{
                 if(err){
@@ -65,8 +65,8 @@ function  delay(time){
                 }
             })
             await delay(100)
-            let data= sp.read(12)
-            if(data!==null && data[0]===0x02 && data[3]===0x65)
+            let data= sp.read(9)
+            if(data!==null && data[0]===0x02 && data[2]===0x36)
             {
                 console.log("found cu hardware")
                 clearInterval(interval)
@@ -94,7 +94,7 @@ function  delay(time){
         // })
         await delay(1000)
 
-        let parserCU = cu.pipe(new ByteLength({length:12}))
+        let parserCU = cu.pipe(new ByteLength({length:9}))
         parserCU.on('data',async(line)=>{
             if(!line){
                 return
@@ -115,7 +115,7 @@ function  delay(time){
                 {
                     console.log("reconnect cu port")
                     cu=new SerialPort(cuPort[0],{baudRate:19200})
-                    parserCU = cu.pipe(new ByteLength({ length: 12 }))
+                    parserCU = cu.pipe(new ByteLength({ length: 9 }))
                     parserCU.on('data', async(line) => {
                         
                         if(!line){
@@ -162,7 +162,7 @@ function  delay(time){
             let lockArr=[]
             if(lockId.length===0)
             {
-                lockArr=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]
+                lockArr=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
             }
             else
             {
@@ -170,11 +170,10 @@ function  delay(time){
             }
             for await(let id of lockArr)
             {
-                MESS_CU[1]=deviceId
-                MESS_CU[2]=id>0?id-1:0
-                MESS_CU[3]=0x51
+                MESS_CU[1]=(deviceId<<4)|(id-1)
+                MESS_CU[2]=0x31
                 let mess_sum=MESS_CU.slice(0,MESS_CU.length-1)
-                MESS_CU[5]=checkSum(mess_sum)
+                MESS_CU[4]=checkSum(mess_sum)
                 // console.log("message send cu:",MESS_CU)
                 if(!cu.isOpen)
                 {
@@ -190,10 +189,10 @@ function  delay(time){
             }
             //send status cmd
             let resultOpen=[]
-            MESS_CU[3]=0x50
-            MESS_CU[2]=0
+            MESS_CU[2]=0x30
+            MESS_CU[1]=(deviceId<<4)|(0)
             let mess_sum=MESS_CU.slice(0,MESS_CU.length-1)
-            MESS_CU[5]=checkSum(mess_sum)
+            MESS_CU[4]=checkSum(mess_sum)
 
             if(!cu.isOpen)
             {
@@ -207,9 +206,9 @@ function  delay(time){
             await delay(200)
             // cu.flush()
             
-            if(data.length>0 && data[0]===0x02 && data[1]===MESS_CU[1]&& data[3]===0x65 )
+            if(data.length>0 && data[0]===0x02 && data[1]===MESS_CU[1]&& data[2]===0x35 )
             {
-                let result=(data[6]<<16)|(data[5]<<8)|(data[4])
+                let result=(data[4]<<8)|(data[3])
                 // data=[]
                 for(id of lockArr)
                 {
@@ -263,7 +262,7 @@ function  delay(time){
             let lockArr=[]
             if(lockId.length===0)
             {
-                lockArr=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]
+                lockArr=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
             }
             else
             {
@@ -272,11 +271,10 @@ function  delay(time){
 
             //send status cmd
             let resultStatus=[]
-            MESS_CU[3]=0x50
-            MESS_CU[1]=deviceId
-            MESS_CU[2]=0
+            MESS_CU[2]=0x30
+            MESS_CU[1]=(deviceId<<4)|(0)
             let mess_sum=MESS_CU.slice(0,MESS_CU.length-1)
-            MESS_CU[5]=checkSum(mess_sum)
+            MESS_CU[4]=checkSum(mess_sum)
             if(!cu.isOpen)
             {
                 return res.json({
@@ -288,10 +286,11 @@ function  delay(time){
             cu.write(MESS_CU)
             await delay(200)
             // cu.flush()
-            if(data.length>0 && data[0]===0x02 && data[1]===MESS_CU[1]&& data[3]===0x65 )
+            if(data.length>0 && data[0]===0x02 && data[1]===MESS_CU[1]&& data[2]===0x35 )
             {
-                let result=(data[6]<<16)|(data[5]<<8)|(data[4])
-
+                let result=(data[4]<<8)|(data[3])
+                // console.log(result)
+                // data=[]
                 for(id of lockArr)
                 {
                     let statusId= (result>>(id-1))&0x0001
